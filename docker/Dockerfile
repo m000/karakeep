@@ -1,13 +1,3 @@
-################# Monolith Builder ##############
-FROM rust:1-bookworm AS monolith_builder
-
-RUN apt-get update \
-    && apt-get install --no-install-recommends -y \
-        libssl-dev \
-        pkg-config \
-    && rm -rf /var/lib/apt/lists/* \
-    && cargo install monolith
-
 ################# Base Builder ##############
 FROM node:24-slim AS base
 
@@ -136,8 +126,15 @@ RUN case ${TARGETARCH} in \
     && curl -fsSL https://github.com/yt-dlp/yt-dlp/releases/latest/download/${YTDLP_FILE} -o /usr/local/bin/yt-dlp \
     && chmod +x /usr/local/bin/yt-dlp
 
-# Copy monolith binary from builder
-COPY --from=monolith_builder /usr/local/cargo/bin/monolith /usr/local/bin/monolith
+# Install monolith from prebuilt release binaries
+ARG MONOLITH_VERSION=v2.10.1
+RUN case ${TARGETARCH} in \
+        "amd64")  MONOLITH_FILE=monolith-gnu-linux-x86_64 ;; \
+        "arm64")  MONOLITH_FILE=monolith-gnu-linux-aarch64 ;; \
+        *) echo "Unsupported arch: ${TARGETARCH}" && exit 1 ;; \
+    esac \
+    && curl -fsSL https://github.com/Y2Z/monolith/releases/download/${MONOLITH_VERSION}/${MONOLITH_FILE} -o /usr/local/bin/monolith \
+    && chmod +x /usr/local/bin/monolith
 
 ######################
 # Prepare the web app
